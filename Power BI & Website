@@ -1,0 +1,27 @@
+let
+	Key = "THE API KEY",
+	Board = "BOARD ID YOU LOOKING FOR5SD546546546",
+	Source = Web.Contents(
+        "
+WEBSITE> https://api.monday.com/v2"
+,
+        [
+            Headers=[
+                #"Method"="POST",
+                #"Content-Type"="application/json",
+                #"Authorization"="Bearer " & Key,
+                #"API-Version"="2024-01"
+            ],
+            Content=Text.ToBinary(
+                "{""query"": ""query { boards(ids: " & Board & ") { items_page(limit: 500) { items { name, updated_at, group { title }, columns: column_values { column { title }, text, ...on DependencyValue { display_value }, ...on MirrorValue { display_value }, ...on BoardRelationValue { display_value } } } } } }""}"
+            )
+        ]
+    ),
+    Data = Table.FromList(Json.Document(Source)[data][boards]{0}[items_page][items], Record.FieldValues, {"Title", "UpdatedAt", "Group", "Columns"}),
+    #"Expanded Group" = Table.ExpandRecordColumn(Data, "Group", {"title"}, {"Group.title"}),
+    #"Expanded Columns" = Table.ExpandListColumn(#"Expanded Group", "Columns"),
+    #"Expanded Columns1" = Table.ExpandRecordColumn(#"Expanded Columns", "Columns", {"column", "text"}, {"Columns.column", "Columns.text"}),
+    #"Expanded Columns.column" = Table.ExpandRecordColumn(#"Expanded Columns1", "Columns.column", {"title"}, {"Columns.column.title"}),
+    #"Pivoted Column" = Table.Pivot(#"Expanded Columns.column", List.Distinct(#"Expanded Columns.column"[Columns.column.title]), "Columns.column.title", "Columns.text")
+in
+    #"Pivoted Column"
